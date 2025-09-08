@@ -1,0 +1,25 @@
+# .NET build
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+TestResults/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+
+# IDE
+.vs/
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# User-specific
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
