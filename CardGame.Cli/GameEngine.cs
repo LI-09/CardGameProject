@@ -74,6 +74,9 @@ namespace CardGame.Cli                            // 命名空间：与项目保
                 var card = p.Hand[idx];                 // 根据索引取出将要打出的那张牌
                 p.Hand.RemoveAt(idx);                   // 从手牌移除该牌，表示正式“打出”
                 Console.WriteLine($"{p.Name} 打出: {card}"); // 打印人类打出的牌面
+                // 出牌后：触发“出牌时(OnPlay)”效果（若有规则已登记）
+                CardEffects.Run(CardTrigger.OnPlay, card, p, this);
+
 
                 DrawFromMainDeckIfAvailable(p);         // ***新增关键逻辑***：出牌后，立刻尝试从主牌库抽 1 张补回手牌
                                                         // （若主牌库为空则仅提示，不影响回合继续）
@@ -98,6 +101,9 @@ namespace CardGame.Cli                            // 命名空间：与项目保
                 var card = p.Hand[idx];                 // 取出将要打出的牌
                 p.Hand.RemoveAt(idx);                   // 从手牌移除该牌
                 Console.WriteLine($"{p.Name} 打出: {card}"); // 打印 AI 打出的牌面
+                // 出牌后：触发“出牌时(OnPlay)”效果（若有规则已登记）
+                CardEffects.Run(CardTrigger.OnPlay, card, p, this);
+
 
                 DrawFromMainDeckIfAvailable(p);         // ***新增关键逻辑***：AI 出牌后，同样从主牌库尝试补 1 张
                                                         // 保持与人类分支一致的“出牌即补牌”规则
