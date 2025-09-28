@@ -38,7 +38,87 @@ namespace CardGame.Cli                            // 命名空间：与项目保
             Console.WriteLine($"公共区(暗牌): {publicPool.Count}（应为 14）");        // 校验：公共区 14 张
             Console.WriteLine($"主牌库剩余: {deck.Count}（应为 27）");                // 校验：54 - 6 - 7 - 14 = 27
         }
+    // === 新增：出牌后从主牌库补牌的帮助方法（放在 GameEngine 类里） ===
+    private void DrawFromMainDeckIfAvailable(Player p)  // 定义私有方法：尝试让玩家 p 从主牌库 deck 抽 1 张
+    {                                                   // 方法体开始
+        if (deck.Count > 0)                             // 如果主牌库还有牌（Deck.Count 来自 Deck.cs，用于判空）
+        {                                               // 分支：主牌库非空
+            p.Draw(deck, 1);                            // 调用 Player.Draw(from: deck, count: 1) 真正抽 1 张到玩家手牌
+            Console.WriteLine(                          // 在控制台打印补牌信息，便于观察流程
+                $"{p.Name} 从主牌库补 1 张（主牌库剩余: {deck.Count}）");  // 显示玩家名与主牌库剩余数
+        }                                               // if 分支结束
+        else                                            // 否则：主牌库已空
+        {                                               // 分支：主牌库为空
+            Console.WriteLine("主牌库已空，无法补牌。"); // 仅提示无法补牌，不抛异常，保证流程可继续
+        }                                               // else 分支结束
+    }                                                   // 方法体结束
 
+    // === 替换：带“出牌后自动补牌”的 PlayTurn 方法（完整覆盖原方法），每行注释 ===
+    public void PlayTurn(Player p)                      // 执行玩家 p 的一个回合
+    {                                                   // 方法体开始
+        Console.WriteLine($"\n---- {p.Name} 的回合 ----"); // 打印回合开始提示（前置换行便于分隔）
+
+        int toReveal = p.Hand.Count / 2;                // 计算“需要展示”的张数：手牌一半（向下取整）
+        var revealed = p.Hand                           // 从手牌中取出将要“展示”的那一半（当前仅打印，不改变状态）
+            .Take(toReveal)                             // 取前 toReveal 张
+            .ToList();                                  // 物化为 List 便于多次使用
+        Console.WriteLine(                              // 打印展示的牌面，帮助观察调试
+            $"{p.Name} 展示: {string.Join(", ", revealed)}（展示 {toReveal} 张）"); // 展示列表与数量
+
+        // === 出牌阶段：人类与 AI 分开处理，但“出牌后补 1 张”的逻辑一致 ===
+        if (p == human)                                 // 分支：人类玩家
+        {                                               // 人类分支开始
+            if (p.Hand.Count > 0)                       // 若人类当前有手牌可出
+            {                                           // 可出牌分支
+                int idx = ReadHumanCardIndex(p);        // 读取人类输入的手牌索引（循环校验直到有效）
+                var card = p.Hand[idx];                 // 根据索引取出将要打出的那张牌
+                p.Hand.RemoveAt(idx);                   // 从手牌移除该牌，表示正式“打出”
+                Console.WriteLine($"{p.Name} 打出: {card}"); // 打印人类打出的牌面
+
+                DrawFromMainDeckIfAvailable(p);         // ***新增关键逻辑***：出牌后，立刻尝试从主牌库抽 1 张补回手牌
+                                                        // （若主牌库为空则仅提示，不影响回合继续）
+                // TODO：此处可接入“牌面效果/资源消耗/结算”等后续逻辑（保持与原框架一致）
+            }                                           // 可出牌分支结束
+            else                                        // 否则：人类无牌可出
+            {                                           // 无牌分支开始
+                Console.WriteLine(                      // 打印无牌提示
+                    $"{p.Name} 无牌可出 → 从公共区抽一张"); // 按当前规则：手牌为 0 时从“公共区”抽 1 张（不是主牌库）
+                if (publicPool.Count > 0)               // 如果公共区还有牌
+                    p.Draw(publicPool, 1);              // 从公共区抽 1 张并结束本回合（这是原有规则，保持不变）
+                else                                     // 否则：公共区也空
+                    Console.WriteLine("公共区已空。");   // 仅提示（游戏结束判定在循环处处理）
+            }                                           // 无牌分支结束
+        }                                               // 人类分支结束
+        else                                            // 分支：AI 玩家
+        {                                               // AI 分支开始
+            var ai = (AIPlayer)p;                       // 将通用 Player 强制转换为 AIPlayer，以便调用决策函数
+            int idx = ai.DecideMove();                  // 让 AI 决定要出的手牌索引（当前实现可能固定为 0）
+            if (idx >= 0)                               // idx >= 0 表示有牌可出
+            {                                           // AI 可出牌分支
+                var card = p.Hand[idx];                 // 取出将要打出的牌
+                p.Hand.RemoveAt(idx);                   // 从手牌移除该牌
+                Console.WriteLine($"{p.Name} 打出: {card}"); // 打印 AI 打出的牌面
+
+                DrawFromMainDeckIfAvailable(p);         // ***新增关键逻辑***：AI 出牌后，同样从主牌库尝试补 1 张
+                                                        // 保持与人类分支一致的“出牌即补牌”规则
+                // TODO：此处同样可接入“牌面效果/资源消耗/结算”等处理
+            }                                           // AI 可出牌分支结束
+            else                                        // 否则：AI 无牌可出
+            {                                           // AI 无牌分支开始
+                Console.WriteLine(                      // 打印无牌提示
+                    $"{p.Name} 无牌可出 → 从公共区抽一张"); // 按当前规则：手牌为 0 时从公共区抽 1 张
+                if (publicPool.Count > 0)               // 如果公共区还有牌
+                    p.Draw(publicPool, 1);              // 抽 1 张并结束本回合（不出牌）
+                else                                     // 否则：公共区空
+                    Console.WriteLine("公共区已空。");   // 仅提示（是否结束由外层逻辑判定）
+            }                                           // AI 无牌分支结束
+        }                                               // AI 分支结束
+
+        Console.WriteLine(                              // 回合收尾状态打印
+            $"{p.Name} 回合结束。当前手牌数: {p.Hand.Count}"); // 显示回合后手牌数量（已包含可能的补牌）
+    }                                                   // 方法体结束
+
+/*
         public void PlayTurn(Player p)            // 执行单个玩家的一个回合（当前为“占位骨架”，后续逐步完善）
         {
             Console.WriteLine($"\n---- {p.Name} 的回合 ----");                       // 打印回合开始提示（\n 便于分隔回合）
@@ -90,7 +170,7 @@ namespace CardGame.Cli                            // 命名空间：与项目保
             }
 
             Console.WriteLine($"{p.Name} 回合结束。当前手牌数: {p.Hand.Count}");  // ⑭ 回合结束提示（后续要在此实现“洗手牌并重新选择展示”）
-        }
+        } */
 
         // NEW: 读取人类输入的牌索引（循环直到输入有效）
         private int ReadHumanCardIndex(Player p)
